@@ -5,7 +5,7 @@ const PDFLoader = (props) => {
   const [page, setPage] = useState(1);
   const canvasRef = useRef(null);
 
-  const { pdfDocument, pdfPage } = usePdf({
+  const { pdfDocument } = usePdf({
     file: props.file,
     page,
     canvasRef,
