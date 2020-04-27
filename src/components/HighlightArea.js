@@ -6,8 +6,8 @@ const style = {
   alignItems: "center",
   justifyContent: "center",
   border: "solid 1px #ddd",
-  background: "#f0f0f0",
   zindex: 1000,
+  opacity: 0.75,
 };
 
 export default class HighlightArea extends Component {
@@ -22,7 +22,12 @@ export default class HighlightArea extends Component {
           width: this.props.highlight.width,
           height: this.props.highlight.height,
         }}
-        style={style}
+        style={{
+          ...style,
+          background: this.props.highlight.color
+            ? this.props.highlight.color
+            : "#f0f0f0",
+        }}
         onClick={(event) => {
           event.persist();
           this.props.onClick(event);
@@ -46,9 +51,7 @@ export default class HighlightArea extends Component {
 
           this.props.onChange(boundingRect);
         }}
-      >
-        {this.props.highlight.x}, {this.props.highlight.y}
-      </Rnd>
+      ></Rnd>
     );
   }
 }

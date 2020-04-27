@@ -73,9 +73,11 @@ export default class Highlight extends Component {
       <div style={this.props.style}>
         {highlights.map((highlight) => (
           <HighlightArea
+            key={highlight.id}
             highlight={highlight}
             onChange={(boundingRect) => {
               this.updateHighlight(boundingRect);
+              console.log(boundingRect);
             }}
             onClick={(e) => {
               if (e.altKey) return this.deleteHighlight(e, highlight.id);

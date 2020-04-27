@@ -9,8 +9,9 @@ const Sidebar = (props) => {
 
         <p>
           <small>
-            To create area highlight hold ⌥ Option key (Alt), then click and
-            drag.
+            To create area highlight, click anywhere on the PDF page and drag or
+            resize. <br />
+            To delete, hold ⌥/Alt, then click the highlight.
           </small>
         </p>
       </div>
