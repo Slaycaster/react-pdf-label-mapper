@@ -7,7 +7,7 @@ const testHighlights = [
     y: 689,
     width: 40,
     height: 30,
-    page: 1,
+    page: 2,
   },
   {
     id: 2,
@@ -27,7 +27,7 @@ const testHighlights = [
     y: 633,
     width: 40,
     height: 30,
-    page: 1,
+    page: 2,
   },
   {
     id: 4,

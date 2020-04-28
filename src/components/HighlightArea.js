@@ -6,7 +6,6 @@ const style = {
   alignItems: "center",
   justifyContent: "center",
   border: "solid 1px #ddd",
-  zindex: 1000,
   opacity: 0.75,
 };
 

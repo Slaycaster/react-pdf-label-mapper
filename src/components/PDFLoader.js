@@ -10,17 +10,13 @@ const PDFLoader = (props) => {
     page,
     canvasRef,
     scale: props.scale,
+    onPageLoadSuccess: (page) => {
+      console.log(page);
+    },
   });
 
   return (
     <div>
-      {/* Loading bar */}
-      {!pdfDocument && <span>Loading...</span>}
-
-      {/* PDF Canvas */}
-      <canvas ref={canvasRef} />
-
-      {/* Pagination */}
       {Boolean(pdfDocument && pdfDocument.numPages) && (
         <nav>
           <ul className="pager">
@@ -40,6 +36,11 @@ const PDFLoader = (props) => {
           </ul>
         </nav>
       )}
+      {/* Loading bar */}
+      {!pdfDocument && <span>Loading...</span>}
+
+      {/* PDF Canvas */}
+      <canvas ref={canvasRef} />
     </div>
   );
 };
