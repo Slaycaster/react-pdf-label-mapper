@@ -1,12 +1,11 @@
 import React, { Component } from "react";
 import HighlightArea from "./HighlightArea";
 import { pdfjs, Document, Page } from "react-pdf";
-// import PDFLoader from "./PDFLoader";
+import PropTypes from "prop-types";
+import { v1 as uuid } from "uuid";
 
-import testLegends from "../testLegends";
-import testHighlights from "../testHighlights";
-
-let index = testHighlights.length + 1;
+import "../styles/Sidebar.css";
+import "../styles/Tooltip.css";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
 
@@ -24,9 +23,9 @@ export default class PDFLabelMapper extends Component {
     super(props);
 
     this.state = {
-      highlights: testHighlights,
+      highlights: this.props.highlights,
       filteredHighlights: [],
-      legends: testLegends,
+      legends: this.props.legends,
       x: 0,
       y: 0,
       canCreate: true,
@@ -35,6 +34,20 @@ export default class PDFLabelMapper extends Component {
       selectedLegend: null,
     };
   }
+
+  static propTypes = {
+    legends: PropTypes.array.isRequired,
+    highlights: PropTypes.array.isRequired,
+    onLegendCreate: PropTypes.func,
+    onLegendDelete: PropTypes.func,
+    onHighlightCreate: PropTypes.func,
+    onHighlightUpdate: PropTypes.func,
+    onHighlightDelete: PropTypes.func,
+    title: PropTypes.string.isRequired,
+    showDescription: PropTypes.bool,
+    file: PropTypes.string.isRequired,
+    showCoordinates: PropTypes.bool,
+  };
 
   onDocumentLoadSuccess = ({ numPages }) => {
     this.setState({ numPages }, () => {
@@ -51,6 +64,7 @@ export default class PDFLabelMapper extends Component {
       if (highlight.page === pageNumber) {
         filteredHighlights.push(highlight);
       }
+      return null;
     });
 
     this.setState({ filteredHighlights });
@@ -58,16 +72,15 @@ export default class PDFLabelMapper extends Component {
 
   legendTallyHighlights = () => {
     const { highlights, legends } = this.state;
-    console.log(highlights);
-
     legends.map((legend) => {
       legend.tally = highlights.filter((highlight) => {
-        return highlight.legend_id === legend.id;
+        return highlight.legend.id === legend.id;
       }).length;
+
+      return null;
     });
 
     this.setState({ legends });
-    console.log(legends);
   };
 
   changePage = (offset) =>
@@ -86,21 +99,18 @@ export default class PDFLabelMapper extends Component {
 
   renderHighlight = () => {
     const { x, y, selectedLegend, pageNumber } = this.state;
-    const id = index;
-    const newHighlights = [
-      ...this.state.highlights,
-      {
-        id,
-        x,
-        y,
-        width: 50,
-        height: 50,
-        color: selectedLegend.color,
-        legend_id: selectedLegend.id,
-        page: pageNumber,
-      },
-    ];
-    index++;
+    const id = uuid();
+    const newHighlight = {
+      id,
+      x,
+      y,
+      width: 50,
+      height: 50,
+      legend: selectedLegend,
+      page: pageNumber,
+    };
+    const newHighlights = [...this.state.highlights, newHighlight];
+
     this.setState(
       {
         highlights: newHighlights,
@@ -108,6 +118,8 @@ export default class PDFLabelMapper extends Component {
       () => {
         this.filterHighlights();
         this.legendTallyHighlights();
+        this.props.onHighlightCreate &&
+          this.props.onHighlightCreate(newHighlight);
       }
     );
   };
@@ -121,6 +133,7 @@ export default class PDFLabelMapper extends Component {
     this.setState({ highlights: newHighlights, canCreate: true }, () => {
       this.filterHighlights();
       this.legendTallyHighlights();
+      this.props.onHighlightDelete && this.props.onHighlightDelete(id);
     });
   };
 
@@ -141,6 +154,7 @@ export default class PDFLabelMapper extends Component {
       },
       () => {
         this.filterHighlights();
+        this.props.onHighlightUpdate && this.props.onHighlightUpdate(highlight);
       }
     );
   };
@@ -175,20 +189,24 @@ export default class PDFLabelMapper extends Component {
         >
           <div className="description" style={{ padding: "1rem" }}>
             {/* Name - prop: string */}
-            <h3 style={{ marginBottom: "1rem" }}>react-pdf-label-mapper</h3>
+            <h3 style={{ marginBottom: "1rem" }}>{this.props.title}</h3>
 
             {/* Information - prop: boolean */}
-            <div>
-              <p>
-                <small>
-                  To create area highlight, click anywhere on the PDF page and
-                  drag or resize.
-                </small>
-              </p>
-              <p>
-                <small>To delete, hold ⌥/Alt, then click the highlight.</small>
-              </p>
-            </div>
+            {this.props.showDescription && (
+              <div>
+                <p>
+                  <small>
+                    To create area highlight, click anywhere on the PDF page and
+                    drag or resize.
+                  </small>
+                </p>
+                <p>
+                  <small>
+                    To delete, hold ⌥/Alt, then click the highlight.
+                  </small>
+                </p>
+              </div>
+            )}
 
             {/* Pagination */}
             <div>
@@ -234,6 +252,7 @@ export default class PDFLabelMapper extends Component {
                     wordWrap: "break-word",
                     hyphens: "auto",
                     margin: "auto",
+                    fontSize: "0.8vw",
                   }}
                 >
                   {selectedLegend.name}
@@ -268,6 +287,7 @@ export default class PDFLabelMapper extends Component {
                       wordWrap: "break-word",
                       hyphens: "auto",
                       margin: "auto",
+                      fontSize: "0.8vw",
                     }}
                   >
                     {legend.name}
@@ -278,6 +298,7 @@ export default class PDFLabelMapper extends Component {
                       padding: "1rem",
                       float: "right",
                       border: "solid 1px #ddd",
+                      fontSize: "0.8vw",
                     }}
                   >
                     {legend.tally}
@@ -286,14 +307,16 @@ export default class PDFLabelMapper extends Component {
               </div>
             ))}
 
-          <p style={{ padding: "1rem" }}>
-            x: {x}, y: {y}
-          </p>
+          {this.props.showCoordinates && (
+            <p style={{ padding: "1rem" }}>
+              x: {x}, y: {y}
+            </p>
+          )}
         </div>
 
         {/* Document */}
         <Document
-          file="http://sbhe-dev.s3.amazonaws.com/Documents/drawing/Tasks/Task2077/0_t1cr_elec_power_sbhe_lt5___em5_sld_01_02_03_a1_kt__07_apr_2020_.pdf"
+          file={this.props.file}
           onLoadSuccess={this.onDocumentLoadSuccess}
           onMouseMove={this._onMouseMove.bind(this)}
         >

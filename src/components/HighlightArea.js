@@ -1,6 +1,8 @@
 import React, { Component } from "react";
 import { Rnd } from "react-rnd";
 
+import Tooltip from "./Tooltip";
+
 const style = {
   display: "flex",
   alignItems: "center",
@@ -23,8 +25,8 @@ export default class HighlightArea extends Component {
         }}
         style={{
           ...style,
-          background: this.props.highlight.color
-            ? this.props.highlight.color
+          background: this.props.highlight.legend.color
+            ? this.props.highlight.legend.color
             : "#f0f0f0",
         }}
         onClick={(event) => {
@@ -50,7 +52,11 @@ export default class HighlightArea extends Component {
 
           this.props.onChange(boundingRect);
         }}
-      ></Rnd>
+      >
+        <Tooltip message={this.props.highlight.legend.name} position={"left"}>
+          　　　　
+        </Tooltip>
+      </Rnd>
     );
   }
 }
