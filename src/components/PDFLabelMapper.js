@@ -1,12 +1,14 @@
 import React, { Component } from "react";
 import HighlightArea from "./HighlightArea";
-import { Document, Page } from "react-pdf";
+import { pdfjs, Document, Page } from "react-pdf";
 // import PDFLoader from "./PDFLoader";
 
 import testLegends from "../testLegends";
 import testHighlights from "../testHighlights";
 
 let index = testHighlights.length + 1;
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
 
 const legendStyle = {
   display: "flex",
