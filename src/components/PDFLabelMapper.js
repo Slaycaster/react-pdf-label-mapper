@@ -32,6 +32,7 @@ export default class PDFLabelMapper extends Component {
       numPages: null,
       pageNumber: 1,
       selectedLegend: null,
+      selectedTool: "square", //square, circle, measure
     };
   }
 
@@ -177,6 +178,7 @@ export default class PDFLabelMapper extends Component {
       numPages,
       x,
       y,
+      selectedTool,
     } = this.state;
     return (
       <div style={{ display: "flex", height: "100vh" }}>
@@ -227,6 +229,78 @@ export default class PDFLabelMapper extends Component {
                   {">"}
                 </button>
               </p>
+            </div>
+          </div>
+
+          {/* Toolbar */}
+          <p style={{ paddingLeft: "1rem", paddingRight: "1rem" }}>
+            <small>TOOLS</small>
+            <hr />
+          </p>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "row",
+              backgroundColor: "#f1f1f1",
+              paddingLeft: "1rem",
+              width: 100,
+            }}
+          >
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                cursor: "pointer",
+                backgroundColor: selectedTool === "square" ? "#c5c5c5" : null,
+              }}
+              onClick={() => {
+                this.setState({
+                  selectedTool: "square",
+                });
+              }}
+            >
+              <img
+                src={require("../img/rectangle-32.png")}
+                style={{ width: 24, height: 24, padding: 5 }}
+              />
+            </div>
+
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                cursor: "pointer",
+                backgroundColor: selectedTool === "circle" ? "#c5c5c5" : null,
+              }}
+              onClick={() => {
+                this.setState({
+                  selectedTool: "circle",
+                });
+              }}
+            >
+              <img
+                src={require("../img/circle-32.png")}
+                style={{ width: 24, height: 24, padding: 5 }}
+              />
+            </div>
+
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                cursor: "pointer",
+                backgroundColor: selectedTool === "measure" ? "#c5c5c5" : null,
+              }}
+              onClick={() => {
+                this.setState({
+                  selectedTool: "measure",
+                });
+              }}
+            >
+              <img
+                src={require("../img/measure-32.png")}
+                style={{ width: 24, height: 24, padding: 5 }}
+              />
             </div>
           </div>
 
