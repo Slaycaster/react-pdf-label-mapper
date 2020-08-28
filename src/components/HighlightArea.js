@@ -15,6 +15,16 @@ export default class HighlightArea extends Component {
   render() {
     return (
       <Rnd
+        enableResizing={{
+          bottom: this.props.highlight.legend.shape !== "measure",
+          bottomLeft: this.props.highlight.legend.shape !== "measure",
+          bottomRight: this.props.highlight.legend.shape !== "measure",
+          left: true,
+          right: true,
+          top: this.props.highlight.legend.shape !== "measure",
+          topLeft: this.props.highlight.legend.shape !== "measure",
+          topRight: this.props.highlight.legend.shape !== "measure",
+        }}
         position={{
           x: this.props.highlight.x,
           y: this.props.highlight.y,
@@ -28,6 +38,8 @@ export default class HighlightArea extends Component {
           background: this.props.highlight.legend.color
             ? this.props.highlight.legend.color
             : "#f0f0f0",
+          borderRadius:
+            this.props.highlight.legend.shape === "circle" ? 100 / 2 : null,
         }}
         onClick={(event) => {
           event.persist();

@@ -1,5 +1,8 @@
 import React, { Component } from "react";
 import HighlightArea from "./HighlightArea";
+import { Line } from "react-lineto";
+import Legend from "./Legend";
+import Modal from "./Modal";
 import { pdfjs, Document, Page } from "react-pdf";
 import PropTypes from "prop-types";
 import { v1 as uuid } from "uuid";
@@ -9,13 +12,17 @@ import "../styles/Tooltip.css";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
 
-const legendStyle = {
-  display: "flex",
-  border: "solid 1px #ddd",
-  padding: "1rem",
-  marginLeft: "1em",
-  marginRight: "1em",
+const buttonStyle = {
+  backgroundColor: "#4CAF50",
+  border: "none",
+  color: "white",
+  padding: "5px 10px",
+  textAlign: "center",
+  textDecoration: "none",
+  display: "inline-block",
+  fontSize: "12px",
   cursor: "pointer",
+  modalToggle: false,
 };
 
 export default class PDFLabelMapper extends Component {
@@ -24,10 +31,13 @@ export default class PDFLabelMapper extends Component {
 
     this.state = {
       highlights: this.props.highlights,
+      lines: [],
       filteredHighlights: [],
       legends: this.props.legends,
       x: 0,
       y: 0,
+      x2: 0,
+      y2: 0,
       canCreate: true,
       numPages: null,
       pageNumber: 1,
@@ -54,6 +64,13 @@ export default class PDFLabelMapper extends Component {
     this.setState({ numPages }, () => {
       this.filterHighlights();
       this.legendTallyHighlights();
+    });
+  };
+
+  toggleModal = (e) => {
+    e.preventDefault(); //i added this to prevent the default behavior
+    this.setState({
+      modalToggle: !this.state.modalToggle,
     });
   };
 
@@ -125,6 +142,25 @@ export default class PDFLabelMapper extends Component {
     );
   };
 
+  renderLine = () => {
+    const { x2, y2, x, y, selectedLegend, pageNumber } = this.state;
+
+    const id = uuid();
+    const newLine = {
+      id,
+      x,
+      y,
+      x2,
+      y2,
+      legend: selectedLegend,
+      page: pageNumber,
+    };
+
+    const newLines = [...this.state.lines, newLine];
+
+    this.setState({ lines: newLines });
+  };
+
   deleteHighlight = (e, id) => {
     const { highlights } = this.state;
     let newHighlights = highlights.filter((highlight) => {
@@ -172,8 +208,10 @@ export default class PDFLabelMapper extends Component {
   render() {
     const {
       legends,
+      lines,
       filteredHighlights,
       selectedLegend,
+      modalToggle,
       pageNumber,
       numPages,
       x,
@@ -182,6 +220,9 @@ export default class PDFLabelMapper extends Component {
     } = this.state;
     return (
       <div style={{ display: "flex", height: "100vh" }}>
+        <Modal show={modalToggle} modalClosed={this.toggleModal}>
+          <div style={{ color: "black" }}>The Best Has Happened To ME</div>
+        </Modal>
         {/* Sidebar */}
         <div
           className="sidebar"
@@ -261,6 +302,7 @@ export default class PDFLabelMapper extends Component {
             >
               <img
                 src={require("../img/rectangle-32.png")}
+                alt="Square"
                 style={{ width: 24, height: 24, padding: 5 }}
               />
             </div>
@@ -280,6 +322,7 @@ export default class PDFLabelMapper extends Component {
             >
               <img
                 src={require("../img/circle-32.png")}
+                alt="Circle"
                 style={{ width: 24, height: 24, padding: 5 }}
               />
             </div>
@@ -299,6 +342,7 @@ export default class PDFLabelMapper extends Component {
             >
               <img
                 src={require("../img/measure-32.png")}
+                alt="Measure"
                 style={{ width: 24, height: 24, padding: 5 }}
               />
             </div>
@@ -309,76 +353,28 @@ export default class PDFLabelMapper extends Component {
             <hr />
           </p>
           <div>
-            {selectedLegend ? (
-              <div
-                style={{
-                  ...legendStyle,
-                  background: selectedLegend.color,
-                }}
-              >
-                <strong
-                  style={{
-                    color: "black",
-                    backgroundColor: "#fcf8ed",
-                    width: "100%",
-                    padding: "1rem",
-                    overflowWrap: "break-word",
-                    wordWrap: "break-word",
-                    hyphens: "auto",
-                    margin: "auto",
-                    fontSize: "0.8vw",
-                  }}
-                >
-                  {selectedLegend.name}
-                </strong>
-              </div>
-            ) : (
-              <div style={legendStyle}>-</div>
-            )}
+            {selectedLegend ? <Legend legend={selectedLegend} /> : <Legend />}
           </div>
 
           <p style={{ paddingLeft: "1rem", paddingRight: "1rem" }}>
             <small>LEGENDS</small>
+            <button
+              style={{ ...buttonStyle, float: "right" }}
+              onClick={this.toggleModal}
+            >
+              + add legend
+            </button>
             <hr />
           </p>
+
           {legends &&
             legends.map((legend) => (
-              <div>
-                <div
-                  key={legend.id}
-                  style={{ ...legendStyle, background: legend.color }}
-                  onClick={() => {
-                    this.onSelectLegend(legend);
-                  }}
-                >
-                  <strong
-                    style={{
-                      color: "black",
-                      backgroundColor: "#fcf8ed",
-                      width: "100%",
-                      padding: "1rem",
-                      overflowWrap: "break-word",
-                      wordWrap: "break-word",
-                      hyphens: "auto",
-                      margin: "auto",
-                      fontSize: "0.8vw",
-                    }}
-                  >
-                    {legend.name}
-                  </strong>
-                  <strong
-                    style={{
-                      background: "#f2f1ed",
-                      padding: "1rem",
-                      float: "right",
-                      border: "solid 1px #ddd",
-                      fontSize: "0.8vw",
-                    }}
-                  >
-                    {legend.tally}
-                  </strong>
-                </div>
-              </div>
+              <Legend
+                legend={legend}
+                onClick={() => {
+                  this.onSelectLegend(legend);
+                }}
+              />
             ))}
 
           {this.props.showCoordinates && (
@@ -402,16 +398,33 @@ export default class PDFLabelMapper extends Component {
             }}
           >
             <div
-              onClick={() => {
-                if (selectedLegend) {
-                  this.renderHighlight();
-                } else {
-                  alert("Please select a legend first from the sidebar.");
-                }
+              // onClick={() => {
+              //   if (selectedLegend) {
+              //     if (selectedLegend.shape !== "measure") {
+              //       this.renderHighlight();
+              //     } else {
+              //       this.renderLine();
+              //     }
+              //   } else {
+              //     alert("Please select a legend first from the sidebar.");
+              //   }
+              // }}
+              onDrag={() => {
+                console.log("dragg");
               }}
             >
               <Page pageNumber={pageNumber} renderTextLayer={false} />
             </div>
+
+            {lines.map((line) => (
+              <Line
+                key={line.id}
+                x0={line.x}
+                y0={line.y}
+                x1={line.x2}
+                y1={line.y2}
+              />
+            ))}
 
             {filteredHighlights.map((highlight) => (
               <HighlightArea
