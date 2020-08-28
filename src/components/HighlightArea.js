@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import { Rnd } from "react-rnd";
+import { Line } from "react-lineto";
 
 import Tooltip from "./Tooltip";
 
@@ -13,18 +14,23 @@ const style = {
 
 export default class HighlightArea extends Component {
   render() {
-    return (
-      <Rnd
-        enableResizing={{
-          bottom: this.props.highlight.legend.shape !== "measure",
-          bottomLeft: this.props.highlight.legend.shape !== "measure",
-          bottomRight: this.props.highlight.legend.shape !== "measure",
-          left: true,
-          right: true,
-          top: this.props.highlight.legend.shape !== "measure",
-          topLeft: this.props.highlight.legend.shape !== "measure",
-          topRight: this.props.highlight.legend.shape !== "measure",
+    return this.props.highlight.legend.shape === "measure" ? (
+      <div
+        onClick={(event) => {
+          event.persist();
+          this.props.onClick(event);
         }}
+      >
+        <Line
+          within={"MouseSelection-container"}
+          x0={this.props.highlight.x0}
+          y0={this.props.highlight.y0}
+          x1={this.props.highlight.x1}
+          y1={this.props.highlight.y1}
+        />
+      </div>
+    ) : (
+      <Rnd
         position={{
           x: this.props.highlight.x,
           y: this.props.highlight.y,
@@ -39,7 +45,7 @@ export default class HighlightArea extends Component {
             ? this.props.highlight.legend.color
             : "#f0f0f0",
           borderRadius:
-            this.props.highlight.legend.shape === "circle" ? 100 / 2 : null,
+            this.props.highlight.legend.shape === "circle" ? "100%" : null,
         }}
         onClick={(event) => {
           event.persist();

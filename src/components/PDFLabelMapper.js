@@ -6,6 +6,8 @@ import Modal from "./Modal";
 import { pdfjs, Document, Page } from "react-pdf";
 import PropTypes from "prop-types";
 import { v1 as uuid } from "uuid";
+import MouseSelection from "./MouseSelection";
+import Spinner from "./Spinner";
 
 import "../styles/Sidebar.css";
 import "../styles/Tooltip.css";
@@ -36,11 +38,10 @@ export default class PDFLabelMapper extends Component {
       legends: this.props.legends,
       x: 0,
       y: 0,
-      x2: 0,
-      y2: 0,
       canCreate: true,
       numPages: null,
       pageNumber: 1,
+      isAreaSelectionInProgress: false,
       selectedLegend: null,
       selectedTool: "square", //square, circle, measure
     };
@@ -115,17 +116,31 @@ export default class PDFLabelMapper extends Component {
 
   nextPage = () => this.changePage(1);
 
-  renderHighlight = () => {
+  renderHighlight = (bound) => {
     const { x, y, selectedLegend, pageNumber } = this.state;
     const id = uuid();
+    let coordinates = {};
+    if (this.state.selectedLegend.shape === "measure") {
+      coordinates = {
+        x0: bound.x0,
+        y0: bound.y0,
+        x1: bound.x1,
+        y1: bound.y1,
+      };
+    } else {
+      coordinates = {
+        x: bound.left,
+        y: bound.top,
+        width: bound.width,
+        height: bound.height,
+      };
+    }
+
     const newHighlight = {
       id,
-      x,
-      y,
-      width: 50,
-      height: 50,
       legend: selectedLegend,
       page: pageNumber,
+      ...coordinates,
     };
     const newHighlights = [...this.state.highlights, newHighlight];
 
@@ -140,25 +155,6 @@ export default class PDFLabelMapper extends Component {
           this.props.onHighlightCreate(newHighlight);
       }
     );
-  };
-
-  renderLine = () => {
-    const { x2, y2, x, y, selectedLegend, pageNumber } = this.state;
-
-    const id = uuid();
-    const newLine = {
-      id,
-      x,
-      y,
-      x2,
-      y2,
-      legend: selectedLegend,
-      page: pageNumber,
-    };
-
-    const newLines = [...this.state.lines, newLine];
-
-    this.setState({ lines: newLines });
   };
 
   deleteHighlight = (e, id) => {
@@ -273,81 +269,6 @@ export default class PDFLabelMapper extends Component {
             </div>
           </div>
 
-          {/* Toolbar */}
-          <p style={{ paddingLeft: "1rem", paddingRight: "1rem" }}>
-            <small>TOOLS</small>
-            <hr />
-          </p>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              backgroundColor: "#f1f1f1",
-              paddingLeft: "1rem",
-              width: 100,
-            }}
-          >
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                cursor: "pointer",
-                backgroundColor: selectedTool === "square" ? "#c5c5c5" : null,
-              }}
-              onClick={() => {
-                this.setState({
-                  selectedTool: "square",
-                });
-              }}
-            >
-              <img
-                src={require("../img/rectangle-32.png")}
-                alt="Square"
-                style={{ width: 24, height: 24, padding: 5 }}
-              />
-            </div>
-
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                cursor: "pointer",
-                backgroundColor: selectedTool === "circle" ? "#c5c5c5" : null,
-              }}
-              onClick={() => {
-                this.setState({
-                  selectedTool: "circle",
-                });
-              }}
-            >
-              <img
-                src={require("../img/circle-32.png")}
-                alt="Circle"
-                style={{ width: 24, height: 24, padding: 5 }}
-              />
-            </div>
-
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                cursor: "pointer",
-                backgroundColor: selectedTool === "measure" ? "#c5c5c5" : null,
-              }}
-              onClick={() => {
-                this.setState({
-                  selectedTool: "measure",
-                });
-              }}
-            >
-              <img
-                src={require("../img/measure-32.png")}
-                alt="Measure"
-                style={{ width: 24, height: 24, padding: 5 }}
-              />
-            </div>
-          </div>
-
           <p style={{ paddingLeft: "1rem", paddingRight: "1rem" }}>
             <small>SELECTED</small>
             <hr />
@@ -384,7 +305,6 @@ export default class PDFLabelMapper extends Component {
           )}
         </div>
 
-        {/* Document */}
         <Document
           file={this.props.file}
           onLoadSuccess={this.onDocumentLoadSuccess}
@@ -398,33 +318,43 @@ export default class PDFLabelMapper extends Component {
             }}
           >
             <div
-              // onClick={() => {
-              //   if (selectedLegend) {
-              //     if (selectedLegend.shape !== "measure") {
-              //       this.renderHighlight();
-              //     } else {
-              //       this.renderLine();
-              //     }
-              //   } else {
-              //     alert("Please select a legend first from the sidebar.");
-              //   }
-              // }}
-              onDrag={() => {
-                console.log("dragg");
-              }}
+            // onClick={() => {
+            //   if (selectedLegend) {
+            //     if (selectedLegend.shape !== "measure") {
+            //       this.renderHighlight();
+            //     } else {
+            //       this.renderLine();
+            //     }
+            //   } else {
+            //     alert("Please select a legend first from the sidebar.");
+            //   }
+            // }}
             >
               <Page pageNumber={pageNumber} renderTextLayer={false} />
-            </div>
-
-            {lines.map((line) => (
-              <Line
-                key={line.id}
-                x0={line.x}
-                y0={line.y}
-                x1={line.x2}
-                y1={line.y2}
+              <MouseSelection
+                selectedLegend={this.state.selectedLegend}
+                onDragStart={() => {
+                  console.log("onDragStart");
+                }}
+                onDragEnd={() => {
+                  if (!this.state.selectedLegend) {
+                    alert("Please select a legend first from the sidebar.");
+                  }
+                }}
+                onChange={(isVisible) =>
+                  this.setState({ isAreaSelectionInProgress: isVisible })
+                }
+                shouldStart={(event) =>
+                  event.target instanceof HTMLElement &&
+                  this.state.selectedLegend
+                }
+                onSelection={(startTarget, boundingRect, resetSelection) => {
+                  console.log(startTarget, boundingRect, resetSelection);
+                  this.renderHighlight(boundingRect);
+                  resetSelection();
+                }}
               />
-            ))}
+            </div>
 
             {filteredHighlights.map((highlight) => (
               <HighlightArea
