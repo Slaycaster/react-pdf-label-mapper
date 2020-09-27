@@ -17,6 +17,12 @@ const testLegends = [
     color: "#a8662c",
     shape: "measure",
   },
+  {
+    id: 4,
+    name: "Shape 3 - Poly",
+    color: "#f8762c",
+    shape: "polygon",
+  },
 ];
 
 export default testLegends;

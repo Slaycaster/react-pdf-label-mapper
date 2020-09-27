@@ -28,6 +28,14 @@ function Shape(props) {
           style={{ width: 24, height: 24, padding: 5 }}
         />
       );
+    case "polygon":
+      return (
+        <img
+          src={require("../img/polygon-32.png")}
+          alt="Polygon"
+          style={{ width: 24, height: 24, padding: 5 }}
+        />
+      );
     default:
       return null;
   }

@@ -14,7 +14,9 @@ const style = {
 
 export default class HighlightArea extends Component {
   render() {
-    return this.props.highlight.legend.shape === "measure" ? (
+    console.log(this.props.highlight);
+    return this.props.highlight.legend.shape === "measure" ||
+      this.props.highlight.legend.shape === "polygon" ? (
       <div
         onClick={(event) => {
           event.persist();
@@ -27,6 +29,11 @@ export default class HighlightArea extends Component {
           y0={this.props.highlight.y0}
           x1={this.props.highlight.x1}
           y1={this.props.highlight.y1}
+          borderColor={
+            this.props.highlight.legend.color
+              ? this.props.highlight.legend.color
+              : "red"
+          }
         />
       </div>
     ) : (

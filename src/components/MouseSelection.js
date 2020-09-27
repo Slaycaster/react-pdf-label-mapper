@@ -142,7 +142,10 @@ class MouseSelection extends Component {
             }
 
             if (event.target instanceof HTMLElement) {
-              if (this.props.selectedLegend.shape === "measure") {
+              if (
+                this.props.selectedLegend.shape === "measure" ||
+                this.props.selectedLegend.shape === "polygon"
+              ) {
                 onSelection(startTarget, boundingLine, that.reset);
               } else {
                 onSelection(startTarget, boundingRect, that.reset);
@@ -174,7 +177,8 @@ class MouseSelection extends Component {
       >
         {start && end ? (
           this.props.selectedLegend &&
-          this.props.selectedLegend.shape !== "measure" ? (
+          this.props.selectedLegend.shape !== "measure" &&
+          this.props.selectedLegend.shape !== "polygon" ? (
             <div
               className="MouseSelection"
               style={{
@@ -187,6 +191,7 @@ class MouseSelection extends Component {
           ) : (
             <Line
               within={"MouseSelection-container"}
+              borderColor={this.props.selectedLegend.color}
               x0={start.x}
               y0={start.y}
               x1={end.x}

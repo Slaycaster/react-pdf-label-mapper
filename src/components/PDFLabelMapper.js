@@ -2,12 +2,15 @@ import React, { Component } from "react";
 import HighlightArea from "./HighlightArea";
 import { Line } from "react-lineto";
 import Legend from "./Legend";
+import Shape from "./Shape";
 import Modal from "./Modal";
 import { pdfjs, Document, Page } from "react-pdf";
 import PropTypes from "prop-types";
 import { v1 as uuid } from "uuid";
 import MouseSelection from "./MouseSelection";
 import Spinner from "./Spinner";
+
+import { SliderPicker } from "react-color";
 
 import "../styles/Sidebar.css";
 import "../styles/Tooltip.css";
@@ -28,24 +31,23 @@ const buttonStyle = {
 };
 
 export default class PDFLabelMapper extends Component {
-  constructor(props) {
-    super(props);
-
-    this.state = {
-      highlights: this.props.highlights,
-      lines: [],
-      filteredHighlights: [],
-      legends: this.props.legends,
-      x: 0,
-      y: 0,
-      canCreate: true,
-      numPages: null,
-      pageNumber: 1,
-      isAreaSelectionInProgress: false,
-      selectedLegend: null,
-      selectedTool: "square", //square, circle, measure
-    };
-  }
+  state = {
+    highlights: this.props.highlights,
+    lines: [],
+    filteredHighlights: [],
+    legends: this.props.legends,
+    legendInput: "",
+    shapeInput: "",
+    colorInput: "",
+    x: 0,
+    y: 0,
+    canCreate: true,
+    numPages: null,
+    pageNumber: 1,
+    isAreaSelectionInProgress: false,
+    selectedLegend: null,
+    selectedTool: "square", //square, circle, measure
+  };
 
   static propTypes = {
     legends: PropTypes.array.isRequired,
@@ -120,7 +122,10 @@ export default class PDFLabelMapper extends Component {
     const { x, y, selectedLegend, pageNumber } = this.state;
     const id = uuid();
     let coordinates = {};
-    if (this.state.selectedLegend.shape === "measure") {
+    if (
+      this.state.selectedLegend.shape === "measure" ||
+      this.state.selectedLegend.shape === "polygon"
+    ) {
       coordinates = {
         x0: bound.x0,
         y0: bound.y0,
@@ -153,6 +158,29 @@ export default class PDFLabelMapper extends Component {
         this.legendTallyHighlights();
         this.props.onHighlightCreate &&
           this.props.onHighlightCreate(newHighlight);
+      }
+    );
+  };
+
+  addLegend = () => {
+    const { legendInput, shapeInput, colorInput } = this.state;
+    const id = uuid();
+
+    let newLegend = {
+      id,
+      color: colorInput,
+      name: legendInput,
+      shape: shapeInput,
+    };
+
+    const newLegends = [...this.state.legends, newLegend];
+
+    this.setState(
+      {
+        legends: newLegends,
+      },
+      () => {
+        this.legendTallyHighlights();
       }
     );
   };
@@ -201,9 +229,18 @@ export default class PDFLabelMapper extends Component {
     this.setState({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY });
   };
 
+  onChange = (e) => this.setState({ [e.target.name]: e.target.value });
+
+  handleChangeComplete = (color) => {
+    this.setState({ colorInput: color.hex });
+  };
+
   render() {
     const {
       legends,
+      legendInput,
+      shapeInput,
+      colorInput,
       lines,
       filteredHighlights,
       selectedLegend,
@@ -217,7 +254,91 @@ export default class PDFLabelMapper extends Component {
     return (
       <div style={{ display: "flex", height: "100vh" }}>
         <Modal show={modalToggle} modalClosed={this.toggleModal}>
-          <div style={{ color: "black" }}>The Best Has Happened To ME</div>
+          <h3>+ Add Legend</h3>
+          <label htmlFor="legendInput">Name</label>
+          <input
+            type="text"
+            name="legendInput"
+            onChange={this.onChange}
+            value={legendInput}
+            autoComplete="off"
+            style={{ margin: 10, padding: 10, width: "90%" }}
+          />
+          <label htmlFor="shapeInput">Shape</label>
+          <div style={{ display: "flex", flexDirection: "row", padding: 5 }}>
+            <div
+              style={{
+                backgroundColor: shapeInput === "square" ? "#ccc" : null,
+                cursor: "pointer",
+              }}
+              onClick={() => {
+                this.setState({ shapeInput: "square" });
+              }}
+            >
+              <Shape name="square" />
+            </div>
+            <div
+              style={{
+                backgroundColor: shapeInput === "circle" ? "#ccc" : null,
+                cursor: "pointer",
+              }}
+              onClick={() => {
+                this.setState({ shapeInput: "circle" });
+              }}
+            >
+              <Shape name="circle" />
+            </div>
+            <div
+              style={{
+                backgroundColor: shapeInput === "measure" ? "#ccc" : null,
+                cursor: "pointer",
+              }}
+              onClick={() => {
+                this.setState({ shapeInput: "measure" });
+              }}
+            >
+              <Shape name="measure" />
+            </div>
+            <div
+              style={{
+                backgroundColor: shapeInput === "polygon" ? "#ccc" : null,
+                cursor: "pointer",
+              }}
+              onClick={() => {
+                this.setState({ shapeInput: "polygon" });
+              }}
+            >
+              <Shape name="polygon" />
+            </div>
+          </div>
+
+          <label htmlFor="colorInput">Colour</label>
+          <div style={{ margin: 10 }}>
+            <SliderPicker
+              color={colorInput}
+              onChangeComplete={this.handleChangeComplete}
+            />
+          </div>
+
+          <button
+            style={{
+              ...buttonStyle,
+              width: "100%",
+              marginTop: 10,
+              padding: 10,
+              opacity: !(colorInput && legendInput && shapeInput) ? 0.5 : 1,
+              cursor: !(colorInput && legendInput && shapeInput)
+                ? "not-allowed"
+                : "pointer",
+            }}
+            disabled={!(colorInput && legendInput && shapeInput)}
+            onClick={(e) => {
+              this.addLegend();
+              this.toggleModal(e);
+            }}
+          >
+            Add
+          </button>
         </Modal>
         {/* Sidebar */}
         <div
@@ -290,12 +411,14 @@ export default class PDFLabelMapper extends Component {
 
           {legends &&
             legends.map((legend) => (
-              <Legend
-                legend={legend}
-                onClick={() => {
-                  this.onSelectLegend(legend);
-                }}
-              />
+              <div key={legend.id}>
+                <Legend
+                  legend={legend}
+                  onClick={() => {
+                    this.onSelectLegend(legend);
+                  }}
+                />
+              </div>
             ))}
 
           {this.props.showCoordinates && (
