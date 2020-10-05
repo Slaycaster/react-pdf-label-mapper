@@ -97,10 +97,23 @@ class PDFLabelMapper extends Component {
         measurementLength: this.props.measurementLength,
       });
     }
+    if (prevProps.measurementRawLength !== this.props.measurementRawLength) {
+      this.setState({
+        measurementRawLength: this.props.measurementRawLength,
+      });
+    }
     if (prevProps.measurementUnit !== this.props.measurementUnit) {
       this.setState({
         measurementUnit: this.props.measurementUnit,
       });
+    }
+    if (prevProps.legends !== this.props.legends) {
+      this.setState({ legends: this.props.legends });
+      this.filterHighlights();
+    }
+    if (prevProps.highlights !== this.props.highlights) {
+      this.setState({ highlights: this.props.highlights });
+      this.filterHighlights();
     }
   };
 
