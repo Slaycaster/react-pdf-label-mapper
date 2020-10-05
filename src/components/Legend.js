@@ -4,7 +4,6 @@ import Shape from "./Shape";
 const legendStyle = {
   display: "flex",
   border: "solid 1px #ddd",
-  padding: "1rem",
   marginLeft: "1em",
   marginRight: "1em",
   cursor: "pointer",
@@ -15,47 +14,37 @@ function Legend(props) {
 
   return legend ? (
     <div>
-      <div
-        style={{ ...legendStyle, background: legend.color }}
-        onClick={onClick}
-      >
-        <strong
+      <div style={{ ...legendStyle }} onClick={onClick}>
+        <div
           style={{
-            color: "black",
-            backgroundColor: "#fcf8ed",
-            width: "100%",
-            padding: "1rem",
-            overflowWrap: "break-word",
-            wordWrap: "break-word",
-            hyphens: "auto",
-            margin: "auto",
-            fontSize: "0.8vw",
-            display: "flex",
-            flexDirection: "row",
+            width: 32,
+            marginRight: "10px",
+            backgroundColor: `${legend.color}`,
           }}
         >
-          <div
+          <Shape name={legend.shape} />
+        </div>
+        <div
+          style={{
+            width: "100%",
+          }}
+        >
+          <strong
             style={{
-              width: 32,
-              height: 32,
-              marginRight: "10px",
+              width: "100%",
+              overflowWrap: "break-word",
+              wordWrap: "break-word",
+              hyphens: "auto",
+              marginTop: "10px",
+              marginLeft: "10px",
+              fontSize: "0.8em",
+              display: "flex",
+              flexDirection: "row",
             }}
           >
-            <Shape name={legend.shape} />
-          </div>
-          {legend.name}
-        </strong>
-        <strong
-          style={{
-            background: "#f2f1ed",
-            padding: "1rem",
-            float: "right",
-            border: "solid 1px #ddd",
-            fontSize: "0.8vw",
-          }}
-        >
-          {legend.tally}
-        </strong>
+            {`(${legend.tally ? legend.tally : 0}) ${legend.name}`}
+          </strong>
+        </div>
       </div>
     </div>
   ) : (

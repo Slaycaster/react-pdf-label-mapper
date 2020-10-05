@@ -9,9 +9,8 @@ function App() {
       <PDFLabelMapper
         highlights={testHighlights}
         legends={testLegends}
-        title={"custom title"}
-        showDescription={false}
-        file={`http://sbhe-dev.s3.amazonaws.com/Documents/drawing/Tasks/Task2077/0_t1cr_elec_power_sbhe_lt5___em5_sld_01_02_03_a1_kt__07_apr_2020_.pdf`}
+        title={"SBHE Drawing Highlighter"}
+        file={`https://sbhe-dev.s3-ap-southeast-1.amazonaws.com/200+Series_interim_RCP-210+(Elect).pdf`}
       />
     </div>
   );

@@ -8,6 +8,7 @@ class MouseSelection extends Component {
     locked: false,
     start: null,
     end: null,
+    polygons: [], //set of coords (multiple lines)
   };
 
   root = HTMLElement;
@@ -29,15 +30,6 @@ class MouseSelection extends Component {
     };
   }
 
-  componentDidUpdate() {
-    const { onChange } = this.props;
-    const { start, end } = this.state;
-
-    const isVisible = start && end;
-
-    // onChange(isVisible);
-  }
-
   componentDidMount() {
     if (!this.root) {
       return;
@@ -45,13 +37,7 @@ class MouseSelection extends Component {
 
     const that = this;
 
-    const {
-      onSelection,
-      onDragStart,
-      onDragEnd,
-      shouldStart,
-      selectedLegend,
-    } = this.props;
+    const { onSelection, onDragStart, onDragEnd, shouldStart } = this.props;
 
     const container = this.root.parentElement;
 
@@ -72,6 +58,16 @@ class MouseSelection extends Component {
       };
     };
 
+    document.body.addEventListener("keyup", (event) => {
+      //When Esc key is pressed, multiple codes to support diff browser spec.
+      if (event.key === "Escape" || event.key === "Esc" || event.key === 27) {
+        //Reset polygon selection
+        this.setState({ polygons: [] }, () => {
+          this.reset();
+        });
+      }
+    });
+
     container.addEventListener("mousemove", (event) => {
       const { start, locked } = this.state;
 
@@ -86,6 +82,7 @@ class MouseSelection extends Component {
     });
 
     container.addEventListener("mousedown", (event) => {
+      const { start, end } = this.state;
       if (!shouldStart(event)) {
         this.reset();
         return;
@@ -97,13 +94,94 @@ class MouseSelection extends Component {
         return;
       }
 
-      onDragStart();
+      this.setState(
+        {
+          start: containerCoords(event.pageX, event.pageY),
+          end: null,
+          locked: false,
+        },
+        () => {
+          if (
+            this.props.selectedLegend.shape !== "polygon" ||
+            this.props.selectedLegend.shape !== "measure"
+          ) {
+            if (this.props.defaultHighlight) {
+              //Create object and close this.
+              // const boundingRect = that.getBoundingRect(start, end);
+              let existBoundingRect = {
+                left:
+                  this.state.start.x - this.props.defaultHighlight.width / 2,
+                top:
+                  this.state.start.y - this.props.defaultHighlight.height / 2,
+                width: this.props.defaultHighlight.width,
+                height: this.props.defaultHighlight.height,
+              };
+              onSelection(startTarget, existBoundingRect, that.reset);
+              onDragEnd();
+            } else {
+              onDragStart();
+            }
+          }
+        }
+      );
 
-      this.setState({
-        start: containerCoords(event.pageX, event.pageY),
-        end: null,
-        locked: false,
-      });
+      if (this.props.selectedLegend.shape === "polygon") {
+        //Handle mousedown for polygon
+        if (end) {
+          //Add this point to polygons array and start target again.
+          const end = containerCoords(event.pageX, event.pageY);
+
+          const boundingLine = {
+            x0: start.x,
+            y0: start.y,
+            x1: end.x,
+            y1: end.y,
+          };
+
+          if (
+            !(event.target instanceof HTMLElement) ||
+            !container.contains(event.target)
+          ) {
+            that.reset();
+            return;
+          }
+
+          that.setState(
+            {
+              end,
+              //locked: true,
+              polygons: [...this.state.polygons, boundingLine],
+            },
+            () => {
+              const { start, end } = that.state;
+
+              if (!start || !end) {
+                return;
+              }
+
+              if (event.target instanceof HTMLElement) {
+                //onSelection(startTarget, boundingLine, that.reset); TODO: call onSelection on dblclick event!
+                //For now, add the line to collection,
+
+                onDragEnd();
+              }
+            }
+          );
+        }
+      }
+
+      const onDoubleClick = (event) => {
+        const { start, end, polygons } = this.state;
+
+        if (!start || !end) {
+          return;
+        }
+
+        if (event.target instanceof HTMLElement) {
+          onSelection(startTarget, polygons, that.reset);
+          onDragEnd();
+        }
+      };
 
       const onMouseUp = (event) => {
         // emulate listen once
@@ -111,7 +189,7 @@ class MouseSelection extends Component {
 
         const { start } = this.state;
 
-        if (!start) {
+        if (!start || this.props.selectedLegend.shape === "polygon") {
           return;
         }
 
@@ -122,8 +200,8 @@ class MouseSelection extends Component {
 
         if (
           !(event.target instanceof HTMLElement) ||
-          !container.contains(event.target) ||
-          !that.shouldRender(boundingRect)
+          !container.contains(event.target)
+          // !that.shouldRender(boundingRect)
         ) {
           that.reset();
           return;
@@ -144,7 +222,7 @@ class MouseSelection extends Component {
             if (event.target instanceof HTMLElement) {
               if (
                 this.props.selectedLegend.shape === "measure" ||
-                this.props.selectedLegend.shape === "polygon"
+                this.props.selectedLegend.shape === "calibrate"
               ) {
                 onSelection(startTarget, boundingLine, that.reset);
               } else {
@@ -158,7 +236,10 @@ class MouseSelection extends Component {
       };
 
       if (document.body) {
+        //Listener for Circle, Line, and Rectangle
         document.body.addEventListener("mouseup", onMouseUp);
+        //Listener for Polygon
+        document.body.addEventListener("dblclick", onDoubleClick);
       }
     });
   }
@@ -175,30 +256,55 @@ class MouseSelection extends Component {
         className="MouseSelection-container"
         ref={(node) => (this.root = node)}
       >
-        {start && end ? (
-          this.props.selectedLegend &&
-          this.props.selectedLegend.shape !== "measure" &&
-          this.props.selectedLegend.shape !== "polygon" ? (
-            <div
-              className="MouseSelection"
-              style={{
-                ...this.getBoundingRect(start, end),
-                backgroundColor: this.props.selectedLegend.color,
-                borderRadius:
-                  this.props.selectedLegend.shape === "circle" ? "100%" : null,
-              }}
-            />
-          ) : (
-            <Line
-              within={"MouseSelection-container"}
-              borderColor={this.props.selectedLegend.color}
-              x0={start.x}
-              y0={start.y}
-              x1={end.x}
-              y1={end.y}
-            />
-          )
-        ) : null}
+        {start && end
+          ? this.props.selectedLegend &&
+            (this.props.selectedLegend.shape === "circle" ||
+            this.props.selectedLegend.shape === "square" ? (
+              <div
+                className="MouseSelection"
+                style={{
+                  ...this.getBoundingRect(start, end),
+                  backgroundColor: this.props.selectedLegend.color,
+                  borderRadius:
+                    this.props.selectedLegend.shape === "circle"
+                      ? "100%"
+                      : null,
+                }}
+              />
+            ) : this.props.selectedLegend.shape === "measure" ||
+              this.props.selectedLegend.shape === "calibrate" ? (
+              <Line
+                within={"MouseSelection-container"}
+                borderColor={this.props.selectedLegend.color}
+                x0={start.x}
+                y0={start.y}
+                x1={end.x}
+                y1={end.y}
+              />
+            ) : (
+              <div>
+                <Line
+                  within={"MouseSelection-container"}
+                  borderColor={this.props.selectedLegend.color}
+                  x0={start.x}
+                  y0={start.y}
+                  x1={end.x}
+                  y1={end.y}
+                />
+                {this.state.polygons.map((polygon, index) => (
+                  <Line
+                    key={index}
+                    within={"MouseSelection-container"}
+                    borderColor={this.props.selectedLegend.color}
+                    x0={polygon.x0}
+                    y0={polygon.y0}
+                    x1={polygon.x1}
+                    y1={polygon.y1}
+                  />
+                ))}
+              </div>
+            ))
+          : null}
       </div>
     );
   }

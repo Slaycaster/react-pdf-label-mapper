@@ -1,6 +1,5 @@
 import React, { Component } from "react";
 import HighlightArea from "./HighlightArea";
-import { Line } from "react-lineto";
 import Legend from "./Legend";
 import Shape from "./Shape";
 import Modal from "./Modal";
@@ -8,7 +7,6 @@ import { pdfjs, Document, Page } from "react-pdf";
 import PropTypes from "prop-types";
 import { v1 as uuid } from "uuid";
 import MouseSelection from "./MouseSelection";
-import Spinner from "./Spinner";
 
 import { SliderPicker } from "react-color";
 
@@ -27,10 +25,9 @@ const buttonStyle = {
   display: "inline-block",
   fontSize: "12px",
   cursor: "pointer",
-  modalToggle: false,
 };
 
-export default class PDFLabelMapper extends Component {
+class PDFLabelMapper extends Component {
   state = {
     highlights: this.props.highlights,
     lines: [],
@@ -39,14 +36,42 @@ export default class PDFLabelMapper extends Component {
     legendInput: "",
     shapeInput: "",
     colorInput: "",
+    legendUpdateInput: "",
+    shapeUpdateInput: "",
+    colorUpdateInput: "",
+    scaleUpdateInput: 0,
     x: 0,
     y: 0,
+    defaultHighlight: null,
     canCreate: true,
     numPages: null,
     pageNumber: 1,
     isAreaSelectionInProgress: false,
     selectedLegend: null,
     selectedTool: "square", //square, circle, measure
+    modalLegendToggle: false,
+    modalLegendUpdateToggle: false,
+    modalMeasurementToggle: false,
+    measurementCalibrateHighlight: this.props.measurementCalibrateHighlight
+      ? this.props.measurementCalibrateHighlight
+      : null,
+    measurementRawLength: this.props.measurementRawLength,
+    measurementRawInput: this.props.measurementRawLength
+      ? this.props.measurementRawLength
+      : 1,
+    measurementLength: this.props.measurementLength
+      ? this.props.measurementLength
+      : 1,
+    measurementLengthInput: this.props.measurementLength
+      ? this.props.measurementLength
+      : 1,
+    measurementUnit: this.props.measurementUnit
+      ? this.props.measurementUnit
+      : "m",
+    measurementUnitInput: this.props.measurementUnit
+      ? this.props.measurementUnit
+      : "m",
+    showTip: null,
   };
 
   static propTypes = {
@@ -61,6 +86,22 @@ export default class PDFLabelMapper extends Component {
     showDescription: PropTypes.bool,
     file: PropTypes.string.isRequired,
     showCoordinates: PropTypes.bool,
+    measurementLength: PropTypes.number,
+    measurementUnit: PropTypes.string,
+    showTips: PropTypes.bool,
+  };
+
+  componentDidUpdate = (prevProps) => {
+    if (prevProps.measurementLength !== this.props.measurementLength) {
+      this.setState({
+        measurementLength: this.props.measurementLength,
+      });
+    }
+    if (prevProps.measurementUnit !== this.props.measurementUnit) {
+      this.setState({
+        measurementUnit: this.props.measurementUnit,
+      });
+    }
   };
 
   onDocumentLoadSuccess = ({ numPages }) => {
@@ -70,10 +111,24 @@ export default class PDFLabelMapper extends Component {
     });
   };
 
-  toggleModal = (e) => {
+  toggleLegendModal = (e) => {
     e.preventDefault(); //i added this to prevent the default behavior
     this.setState({
-      modalToggle: !this.state.modalToggle,
+      modalLegendToggle: !this.state.modalLegendToggle,
+    });
+  };
+
+  toggleLegendUpdateModal = (e) => {
+    e.preventDefault(); //i added this to prevent the default behavior
+    this.setState({
+      modalLegendUpdateToggle: !this.state.modalLegendUpdateToggle,
+    });
+  };
+
+  toggleMeasurementModal = (e) => {
+    e.preventDefault(); //i added this to prevent the default behavior
+    this.setState({
+      modalMeasurementToggle: !this.state.modalMeasurementToggle,
     });
   };
 
@@ -83,12 +138,49 @@ export default class PDFLabelMapper extends Component {
 
     highlights.map((highlight) => {
       if (highlight.page === pageNumber) {
+        if (highlight.legend.shape === "measure") {
+          highlight.geometry = this.getLinePoints(highlight);
+        }
+        if (highlight.legend.shape === "polygon") {
+          highlight.points.map((point) => {
+            point.geometry = this.getLinePoints(point);
+            // return point;
+          });
+        }
         filteredHighlights.push(highlight);
       }
       return null;
     });
 
     this.setState({ filteredHighlights });
+  };
+
+  getLinePoints = (line) => {
+    let y0 = line.y0;
+    let y1 = line.y1;
+    let x0 = line.x0;
+    let x1 = line.x1;
+
+    //Compute y and x distance.
+    let dy = y1 - y0;
+    let dx = x1 - x0;
+
+    //Compute angle.
+    let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+    //Compute length.
+    let length = Math.sqrt(dx * dx + dy * dy);
+
+    //Compute centerline.
+    let center = { x: (x1 - x0) / 2 + x0, y: (y1 - y0) / 2 + y0 };
+
+    return {
+      dy,
+      dx,
+      angle,
+      length,
+      center,
+    };
   };
 
   legendTallyHighlights = () => {
@@ -118,26 +210,32 @@ export default class PDFLabelMapper extends Component {
 
   nextPage = () => this.changePage(1);
 
-  renderHighlight = (bound) => {
-    const { x, y, selectedLegend, pageNumber } = this.state;
+  renderHighlight = (highlight) => {
+    const { selectedLegend, pageNumber } = this.state;
     const id = uuid();
+
     let coordinates = {};
-    if (
-      this.state.selectedLegend.shape === "measure" ||
-      this.state.selectedLegend.shape === "polygon"
+    if (this.state.selectedLegend.shape === "measure") {
+      coordinates = {
+        x0: highlight.x0,
+        y0: highlight.y0,
+        x1: highlight.x1,
+        y1: highlight.y1,
+      };
+    } else if (
+      this.state.selectedLegend.shape === "square" ||
+      this.state.selectedLegend.shape === "circle"
     ) {
       coordinates = {
-        x0: bound.x0,
-        y0: bound.y0,
-        x1: bound.x1,
-        y1: bound.y1,
+        x: highlight.left,
+        y: highlight.top,
+        width: highlight.width,
+        height: highlight.height,
       };
     } else {
+      //Polygon
       coordinates = {
-        x: bound.left,
-        y: bound.top,
-        width: bound.width,
-        height: bound.height,
+        points: highlight,
       };
     }
 
@@ -152,6 +250,12 @@ export default class PDFLabelMapper extends Component {
     this.setState(
       {
         highlights: newHighlights,
+        defaultHighlight:
+          !this.state.defaultHighlight &&
+          (this.state.selectedLegend.shape === "square" ||
+            this.state.selectedLegend.shape === "circle")
+            ? coordinates
+            : this.state.defaultHighlight,
       },
       () => {
         this.filterHighlights();
@@ -160,6 +264,57 @@ export default class PDFLabelMapper extends Component {
           this.props.onHighlightCreate(newHighlight);
       }
     );
+  };
+
+  renderCalibrationHighlight = (highlight) => {
+    const { selectedLegend } = this.state;
+    let coordinates = {
+      x0: highlight.x0,
+      y0: highlight.y0,
+      x1: highlight.x1,
+      y1: highlight.y1,
+    };
+    let geometry = this.getLinePoints(highlight);
+
+    const measurementCalibrateHighlight = {
+      id: 0,
+      legend: selectedLegend,
+      ...coordinates,
+      geometry,
+    };
+
+    this.setState({
+      modalMeasurementToggle: !this.state.modalMeasurementToggle,
+      measurementCalibrateHighlight,
+      measurementRawInput: measurementCalibrateHighlight.geometry.length,
+      measurementLengthInput: 1,
+    });
+  };
+
+  editLegend = () => {
+    const { selectedLegend, highlights } = this.state;
+
+    let initialScale = 0;
+
+    if (
+      selectedLegend.shape === "circle" ||
+      selectedLegend.shape === "square"
+    ) {
+      //Get initial size
+      for (let h in highlights) {
+        if (highlights[h].legend.id === selectedLegend.id) {
+          initialScale = highlights[h].width;
+          break;
+        }
+      }
+    }
+
+    this.setState({
+      legendUpdateInput: selectedLegend.name,
+      shapeUpdateInput: selectedLegend.shape,
+      colorUpdateInput: selectedLegend.color,
+      scaleUpdateInput: initialScale,
+    });
   };
 
   addLegend = () => {
@@ -183,6 +338,91 @@ export default class PDFLabelMapper extends Component {
         this.legendTallyHighlights();
       }
     );
+  };
+
+  updateLegend = () => {
+    let {
+      legendUpdateInput,
+      shapeUpdateInput,
+      colorUpdateInput,
+      scaleUpdateInput,
+      selectedLegend,
+      highlights,
+    } = this.state;
+
+    let highlightsUpdated = [];
+
+    for (let h in highlights) {
+      if (highlights[h].legend.id === selectedLegend.id) {
+        if (
+          selectedLegend.shape === "circle" ||
+          selectedLegend.shape === "square"
+        ) {
+          highlights[h].width = scaleUpdateInput;
+          highlights[h].height = scaleUpdateInput;
+        }
+        highlights[h].legend = {
+          ...highlights[h].legend,
+          name: legendUpdateInput,
+          color: colorUpdateInput,
+          shape:
+            selectedLegend.shape === "circle" ||
+            selectedLegend.shape === "square"
+              ? shapeUpdateInput
+              : highlights[h].legend.shape, //only for circle and square
+        };
+        highlightsUpdated.push(highlights[h]);
+      }
+    }
+
+    this.setState(
+      {
+        highlights,
+        legends: this.state.legends.map((l) => {
+          return l.id === selectedLegend.id
+            ? {
+                ...l,
+
+                name: legendUpdateInput,
+                color: colorUpdateInput,
+                shape:
+                  selectedLegend.shape === "circle" ||
+                  selectedLegend.shape === "square"
+                    ? shapeUpdateInput
+                    : l.shape, //only for circle and square,
+              }
+            : l;
+        }),
+        selectedLegend: {
+          ...selectedLegend,
+          name: legendUpdateInput,
+          color: colorUpdateInput,
+          shape:
+            selectedLegend.shape === "circle" ||
+            selectedLegend.shape === "square"
+              ? shapeUpdateInput
+              : selectedLegend.shape, //only for circle and square,
+        },
+      },
+      () => {
+        this.filterHighlights();
+        console.log(highlightsUpdated);
+        this.props.onLegendUpdate &&
+          this.props.onLegendUpdate(selectedLegend, highlightsUpdated);
+      }
+    );
+  };
+
+  calibrateMeasurement = () => {
+    this.setState({
+      measurementLength:
+        this.state.measurementRawInput / this.state.measurementLengthInput,
+      measurementUnit: this.state.measurementUnitInput,
+      measurementRawLength: this.state.measurementRawInput,
+      selectedLegend: null,
+    });
+
+    alert("Successfully calibrated.");
   };
 
   deleteHighlight = (e, id) => {
@@ -221,8 +461,25 @@ export default class PDFLabelMapper extends Component {
   };
 
   onSelectLegend = (legend) => {
-    console.log(legend);
-    this.setState({ selectedLegend: legend });
+    this.setState({
+      selectedLegend: legend,
+      defaultHighlight: null,
+      showTip: legend.shape,
+    });
+  };
+
+  onCalibrate = () => {
+    let calibrate = {
+      id: 0,
+      name: "Calibrating. Drag onto the page to start.",
+      color: "#ff0000",
+      shape: "calibrate",
+    };
+    this.setState({
+      selectedLegend: calibrate,
+      defaultHighlight: null,
+      showTip: null,
+    });
   };
 
   _onMouseMove = (e) => {
@@ -235,25 +492,41 @@ export default class PDFLabelMapper extends Component {
     this.setState({ colorInput: color.hex });
   };
 
+  handleUpdateChangeComplete = (color) => {
+    this.setState({ colorUpdateInput: color.hex });
+  };
+
   render() {
     const {
       legends,
       legendInput,
       shapeInput,
       colorInput,
-      lines,
+      legendUpdateInput,
+      shapeUpdateInput,
+      colorUpdateInput,
+      scaleUpdateInput,
       filteredHighlights,
       selectedLegend,
-      modalToggle,
+      modalLegendToggle,
+      modalLegendUpdateToggle,
+      modalMeasurementToggle,
       pageNumber,
       numPages,
       x,
       y,
-      selectedTool,
+      measurementRawInput,
+      measurementLengthInput,
+      measurementUnitInput,
+      measurementRawLength,
+      measurementLength,
+      measurementUnit,
+      showTip,
     } = this.state;
+
     return (
       <div style={{ display: "flex", height: "100vh" }}>
-        <Modal show={modalToggle} modalClosed={this.toggleModal}>
+        <Modal show={modalLegendToggle} modalClosed={this.toggleLegendModal}>
           <h3>+ Add Legend</h3>
           <label htmlFor="legendInput">Name</label>
           <input
@@ -334,10 +607,183 @@ export default class PDFLabelMapper extends Component {
             disabled={!(colorInput && legendInput && shapeInput)}
             onClick={(e) => {
               this.addLegend();
-              this.toggleModal(e);
+              this.toggleLegendModal(e);
             }}
           >
             Add
+          </button>
+        </Modal>
+
+        <Modal
+          show={modalLegendUpdateToggle}
+          modalClosed={this.toggleLegendUpdateModal}
+        >
+          <h3>Update Legend</h3>
+          <label htmlFor="legendUpdateInput">Name</label>
+          <input
+            type="text"
+            name="legendUpdateInput"
+            onChange={this.onChange}
+            value={legendUpdateInput}
+            autoComplete="off"
+            style={{ margin: 10, padding: 10, width: "90%" }}
+          />
+
+          {selectedLegend &&
+          (selectedLegend.shape === "circle" ||
+            selectedLegend.shape === "square") ? (
+            <div>
+              <label htmlFor="shapeUpdateInput">Shape</label>
+              <div
+                style={{ display: "flex", flexDirection: "row", padding: 5 }}
+              >
+                <div
+                  style={{
+                    backgroundColor:
+                      shapeUpdateInput === "square" ? "#ccc" : null,
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    this.setState({ shapeUpdateInput: "square" });
+                  }}
+                >
+                  <Shape name="square" />
+                </div>
+                <div
+                  style={{
+                    backgroundColor:
+                      shapeUpdateInput === "circle" ? "#ccc" : null,
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    this.setState({ shapeUpdateInput: "circle" });
+                  }}
+                >
+                  <Shape name="circle" />
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <label htmlFor="colorUpdateInput">Colour</label>
+          <div style={{ margin: 10 }}>
+            <SliderPicker
+              color={colorUpdateInput}
+              onChangeComplete={this.handleUpdateChangeComplete}
+            />
+          </div>
+
+          {selectedLegend &&
+          (selectedLegend.shape === "circle" ||
+            selectedLegend.shape === "square") ? (
+            <div>
+              <label htmlFor="scaleUpdateInput">Size</label>
+              <input
+                type="number"
+                name="scaleUpdateInput"
+                onChange={this.onChange}
+                value={scaleUpdateInput}
+                autoComplete="off"
+                style={{ margin: 10, padding: 10, width: "90%" }}
+              />
+            </div>
+          ) : null}
+
+          <button
+            style={{
+              ...buttonStyle,
+              width: "100%",
+              marginTop: 10,
+              padding: 10,
+              opacity: !(
+                colorUpdateInput &&
+                legendUpdateInput &&
+                shapeUpdateInput
+              )
+                ? 0.5
+                : 1,
+              cursor: !(
+                colorUpdateInput &&
+                legendUpdateInput &&
+                shapeUpdateInput
+              )
+                ? "not-allowed"
+                : "pointer",
+            }}
+            disabled={
+              !(colorUpdateInput && legendUpdateInput && shapeUpdateInput)
+            }
+            onClick={(e) => {
+              this.updateLegend();
+              this.toggleLegendUpdateModal(e);
+            }}
+          >
+            Update
+          </button>
+        </Modal>
+
+        <Modal
+          show={modalMeasurementToggle}
+          modalClosed={this.toggleMeasurementModal}
+        >
+          <h3>Calibrate Measurement</h3>
+
+          <div style={{ display: "flex", flexDirection: "row" }}>
+            <div>
+              <label htmlFor="measurementRawInput">Raw Length (px)</label>
+              <input
+                type="number"
+                name="measurementLengthInput"
+                onChange={this.onChange}
+                value={measurementRawInput}
+                autoComplete="off"
+                style={{ margin: 10, padding: 10, width: "70%" }}
+              />
+            </div>
+            <p style={{ marginRight: 20 }}>=</p>
+            <div>
+              <label htmlFor="measurementLengthInput">To</label>
+              <input
+                type="number"
+                name="measurementLengthInput"
+                onChange={this.onChange}
+                value={measurementLengthInput}
+                autoComplete="off"
+                style={{ margin: 10, padding: 10, width: "70%" }}
+              />
+            </div>
+          </div>
+
+          <label htmlFor="measurementUnitInput">Unit</label>
+          <input
+            type="text"
+            name="measurementUnitInput"
+            onChange={this.onChange}
+            value={measurementUnitInput}
+            autoComplete="off"
+            style={{ margin: 10, padding: 10, width: "90%" }}
+          />
+
+          <button
+            style={{
+              ...buttonStyle,
+              width: "100%",
+              marginTop: 10,
+              padding: 10,
+              opacity: !(measurementLengthInput && measurementUnitInput)
+                ? 0.5
+                : 1,
+              cursor: !(measurementLengthInput && measurementUnitInput)
+                ? "not-allowed"
+                : "pointer",
+            }}
+            disabled={!(measurementLengthInput && measurementUnitInput)}
+            onClick={(e) => {
+              this.calibrateMeasurement();
+              this.toggleMeasurementModal(e);
+            }}
+          >
+            Calibrate
           </button>
         </Modal>
         {/* Sidebar */}
@@ -356,13 +802,13 @@ export default class PDFLabelMapper extends Component {
               <div>
                 <p>
                   <small>
-                    To create area highlight, click anywhere on the PDF page and
-                    drag or resize.
+                    To start creating measurements or shapes, add a legend and
+                    select it.
                   </small>
                 </p>
                 <p>
                   <small>
-                    To delete, hold ⌥/Alt, then click the highlight.
+                    To delete, hold ⌥/Alt, then click the measurement/shape.
                   </small>
                 </p>
               </div>
@@ -391,22 +837,87 @@ export default class PDFLabelMapper extends Component {
           </div>
 
           <p style={{ paddingLeft: "1rem", paddingRight: "1rem" }}>
-            <small>SELECTED</small>
-            <hr />
+            <small>CALIBRATION</small>
+            <button
+              style={{ ...buttonStyle, float: "right" }}
+              onClick={this.onCalibrate}
+            >
+              - recalibrate
+            </button>
           </p>
-          <div>
-            {selectedLegend ? <Legend legend={selectedLegend} /> : <Legend />}
+          <p
+            style={{ paddingLeft: "1rem", paddingRight: "1rem" }}
+          >{`${measurementRawLength.toFixed(
+            2
+          )} = ${measurementLengthInput.toFixed(2)}`}</p>
+
+          <p style={{ paddingLeft: "1rem", paddingRight: "1rem" }}>
+            <small>SELECTED</small>
+          </p>
+
+          {selectedLegend ? <Legend legend={selectedLegend} /> : <Legend />}
+          {selectedLegend && selectedLegend.shape !== "calibrate" && (
+            <button
+              style={{
+                marginLeft: "1em",
+                marginRight: "1em",
+                marginTop: "1em",
+              }}
+              onClick={(e) => {
+                this.editLegend();
+                this.toggleLegendUpdateModal(e);
+              }}
+            >
+              Edit
+            </button>
+          )}
+
+          <div style={{ paddingLeft: "1rem", paddingRight: "1rem" }}>
+            {showTip === "measure" && (
+              <div>
+                <p>
+                  <small>Click and drag on the page to create a line.</small>
+                </p>
+                <p>
+                  <small>Press ESC to cancel while dragging.</small>
+                </p>
+              </div>
+            )}
+
+            {showTip === "polygon" && (
+              <div>
+                <p>
+                  <small>
+                    Click to create a point, move the mouse to form a line,
+                    double click to finish.
+                  </small>
+                </p>
+                <p>
+                  <small>Press ESC to cancel.</small>
+                </p>
+              </div>
+            )}
+
+            {(showTip === "circle" || showTip === "square") && (
+              <div>
+                <p>
+                  <small>Click and drag on the page to create a shape.</small>
+                </p>
+                <p>
+                  <small>Press ESC to cancel while dragging.</small>
+                </p>
+              </div>
+            )}
           </div>
 
           <p style={{ paddingLeft: "1rem", paddingRight: "1rem" }}>
             <small>LEGENDS</small>
             <button
               style={{ ...buttonStyle, float: "right" }}
-              onClick={this.toggleModal}
+              onClick={this.toggleLegendModal}
             >
               + add legend
             </button>
-            <hr />
           </p>
 
           {legends &&
@@ -440,24 +951,18 @@ export default class PDFLabelMapper extends Component {
               position: "relative",
             }}
           >
-            <div
-            // onClick={() => {
-            //   if (selectedLegend) {
-            //     if (selectedLegend.shape !== "measure") {
-            //       this.renderHighlight();
-            //     } else {
-            //       this.renderLine();
-            //     }
-            //   } else {
-            //     alert("Please select a legend first from the sidebar.");
-            //   }
-            // }}
-            >
-              <Page pageNumber={pageNumber} renderTextLayer={false} />
+            <div>
+              <Page
+                pageNumber={pageNumber}
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+              />
               <MouseSelection
+                defaultHighlight={this.state.defaultHighlight}
                 selectedLegend={this.state.selectedLegend}
                 onDragStart={() => {
                   console.log("onDragStart");
+                  //This one does nothing?
                 }}
                 onDragEnd={() => {
                   if (!this.state.selectedLegend) {
@@ -471,9 +976,13 @@ export default class PDFLabelMapper extends Component {
                   event.target instanceof HTMLElement &&
                   this.state.selectedLegend
                 }
-                onSelection={(startTarget, boundingRect, resetSelection) => {
-                  console.log(startTarget, boundingRect, resetSelection);
-                  this.renderHighlight(boundingRect);
+                onSelection={(startTarget, highlight, resetSelection) => {
+                  if (this.state.selectedLegend.shape !== "calibrate") {
+                    this.renderHighlight(highlight);
+                  } else {
+                    this.renderCalibrationHighlight(highlight);
+                  }
+
                   resetSelection();
                 }}
               />
@@ -489,6 +998,8 @@ export default class PDFLabelMapper extends Component {
                 onClick={(e) => {
                   if (e.altKey) return this.deleteHighlight(e, highlight.id);
                 }}
+                measurementLength={measurementLength}
+                measurementUnit={measurementUnit}
               />
             ))}
           </div>
@@ -497,3 +1008,15 @@ export default class PDFLabelMapper extends Component {
     );
   }
 }
+
+PDFLabelMapper.defaultProps = {
+  showDescription: true,
+  showCoordinates: false,
+  measurementLength: 1,
+  measurementRawLength: 1,
+  measurementUnit: "m",
+  title: "react-pdf-label-mapper",
+  showTips: true,
+};
+
+export default PDFLabelMapper;
