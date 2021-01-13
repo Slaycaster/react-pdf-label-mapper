@@ -1,5 +1,5 @@
 import React from "react";
-import PDFLabelMapper from "./components/PDFLabelMapper";
+import PDFLabelMapper from "./PDFLabelMapper";
 import testLegends from "./testLegends";
 import testHighlights from "./testHighlights";
 
@@ -9,8 +9,9 @@ function App() {
       <PDFLabelMapper
         highlights={testHighlights}
         legends={testLegends}
-        title={"SBHE Drawing Highlighter"}
-        file={`https://sbhe-dev.s3-ap-southeast-1.amazonaws.com/200+Series_interim_RCP-210+(Elect).pdf`}
+        title={"react-pdf-label-mapper"}
+        file={require("./sample.pdf")}
+        showCoordinates={true}
       />
     </div>
   );

@@ -13,23 +13,7 @@ const style = {
 };
 
 export default class HighlightArea extends Component {
-  getBoundingRect(start, end) {
-    return {
-      left: Math.min(end.x, start.x),
-      top: Math.min(end.y, start.y),
-
-      width: Math.abs(end.x - start.x),
-      height: Math.abs(end.y - start.y),
-    };
-  }
-
   render() {
-    let measure =
-      this.props.highlight.legend.shape !== "measure" ||
-      this.props.highlight.legend.shape !== "polygon"
-        ? this.getBoundingRect(this.props.highlight.x, this.props.highlight.y)
-        : null;
-
     return this.props.highlight.legend.shape === "measure" ? (
       <div
         onClick={(event) => {
@@ -66,7 +50,9 @@ export default class HighlightArea extends Component {
         >
           {`${(
             this.props.highlight.geometry.length /
-            (this.props.measurementLength ? this.props.measurementLength : 100)
+            (this.props.measurementLength
+              ? this.props.measurementRawLength / this.props.measurementLength
+              : 1)
           ).toFixed(2)}${
             this.props.measurementUnit ? this.props.measurementUnit : "m"
           }`}
@@ -109,8 +95,9 @@ export default class HighlightArea extends Component {
               `${(
                 point.geometry.length /
                 (this.props.measurementLength
-                  ? this.props.measurementLength
-                  : 100)
+                  ? this.props.measurementRawLength /
+                    this.props.measurementLength
+                  : 1)
               ).toFixed(2)}${
                 this.props.measurementUnit ? this.props.measurementUnit : "m"
               }`}
@@ -120,8 +107,8 @@ export default class HighlightArea extends Component {
     ) : (
       <Rnd
         position={{
-          x: measure.left,
-          y: measure.top,
+          x: this.props.highlight.x,
+          y: this.props.highlight.y,
         }}
         size={{
           width: this.props.highlight.width,
@@ -129,7 +116,6 @@ export default class HighlightArea extends Component {
         }}
         style={{
           ...style,
-          position: "absolute",
           background: this.props.highlight.legend.color
             ? this.props.highlight.legend.color
             : "#f0f0f0",
